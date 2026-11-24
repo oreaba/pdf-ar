@@ -12,7 +12,13 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 keywords = ["pdf", "arabic", "text-extraction", "ocr", "fonts", "rtl"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Natural Language :: Arabic",
     "Natural Language :: English",
     "Topic :: Text Processing",
@@ -35,6 +41,8 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/oreaba/pdf-ar"
+Repository = "https://github.com/oreaba/pdf-ar"
+Issues = "https://github.com/oreaba/pdf-ar/issues"
 
 [project.scripts]
 pdf-ar = "pdf_ar.cli:main"

@@ -15,7 +15,7 @@ Two optional checks work with any engine:
 - `--ocr-check` records how far OCR agrees with the text;
 - `--font-check` compares native text with the rebuild.
 
-How each works is described under [Engines and how they work](#engines-and-how-they-work).
+How each works is described under [Engines and how they work](https://github.com/oreaba/pdf-ar#engines-and-how-they-work).
 
 ## Why
 
@@ -28,7 +28,7 @@ It was validated on a private corpus of Arabic and English Word-export PDFs:
 
 ## Engines and how they work
 
-Every engine reads the PDF through PyMuPDF, used only in [`pdf_adapter.py`](src/pdf_ar/pdf_adapter.py). None of them uses a language model.
+Every engine reads the PDF through PyMuPDF, used only in [`pdf_adapter.py`](https://github.com/oreaba/pdf-ar/blob/main/src/pdf_ar/pdf_adapter.py). None of them uses a language model.
 
 ### `native`: the PDF's own text
 
@@ -45,7 +45,7 @@ Every engine reads the PDF through PyMuPDF, used only in [`pdf_adapter.py`](src/
   - fontTools opens the matching file in the fonts folder and accepts a glyph only if its outline is identical to the file's.
   - The font's shaping tables (GSUB, GPOS, GDEF) then say which letter, form, ligature or dot each glyph is.
   - English glyphs keep the PDF's text, as in native.
-- **Needs:** the fonts folder (see [Fonts](#fonts)).
+- **Needs:** the fonts folder (see [Fonts](https://github.com/oreaba/pdf-ar#fonts)).
 - **Good for:** Arabic. It is deterministic.
 
 ### `ocr`: Tesseract
@@ -89,7 +89,7 @@ A page moves on from native when the native check finds any of these:
 | `too_little_arabic` | the page has Arabic but fewer than 20 Arabic words, too few to judge |
 | text signals | the same signals as the rebuild's gate (below) |
 
-The limits are `NATIVE_LIMITS` in [`qc.py`](src/pdf_ar/qc.py), and the measures are in [`textstats.py`](src/pdf_ar/textstats.py). Pages without Arabic face only the checks that apply to any script.
+The limits are `NATIVE_LIMITS` in [`qc.py`](https://github.com/oreaba/pdf-ar/blob/main/src/pdf_ar/qc.py), and the measures are in [`textstats.py`](https://github.com/oreaba/pdf-ar/blob/main/src/pdf_ar/textstats.py). Pages without Arabic face only the checks that apply to any script.
 
 ### The two checks
 
@@ -115,11 +115,11 @@ PDFs embed only subsets of their fonts. A subset holds the glyph outlines but no
 Python 3.11 or later:
 
 ```
-pip install "pdf-ar @ git+https://github.com/oreaba/pdf-ar.git"          # PyMuPDF and fontTools
-pip install "pdf-ar[ocr] @ git+https://github.com/oreaba/pdf-ar.git"     # adds pytesseract
+pip install pdf-ar            # PyMuPDF and fontTools
+pip install "pdf-ar[ocr]"     # adds pytesseract
 ```
 
-Or from a clone:
+Or from a clone of the [repository](https://github.com/oreaba/pdf-ar):
 
 ```
 git clone https://github.com/oreaba/pdf-ar.git
@@ -131,7 +131,7 @@ OCR (the `ocr` and `auto` engines, and `--ocr-check`) also needs Tesseract 5 wit
 
 - **Linux:** `apt install tesseract-ocr`, then the models below.
 - **Windows:** the [UB Mannheim installer](https://github.com/UB-Mannheim/tesseract/wiki), then the models below. Pass `--tesseract-cmd` if `tesseract.exe` is not on `PATH`.
-- **Models:** `ara.traineddata` and `eng.traineddata` from [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) into `<root>/fast`, and from [tessdata_best](https://github.com/tesseract-ocr/tessdata_best) into `<root>/best`. The [Dockerfile](Dockerfile) pins the 4.1.0 files by SHA-256.
+- **Models:** `ara.traineddata` and `eng.traineddata` from [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) into `<root>/fast`, and from [tessdata_best](https://github.com/tesseract-ocr/tessdata_best) into `<root>/best`. The [Dockerfile](https://github.com/oreaba/pdf-ar/blob/main/Dockerfile) pins the 4.1.0 files by SHA-256.
 
 PyMuPDF is AGPL-3.0 or commercial. It is used only in `pdf_adapter.py`, so another library that exposes glyph IDs, positions and drawings can replace it there.
 
@@ -181,7 +181,7 @@ The fonts folder (default `./fonts`) holds only the font files you put there. Fo
 2. Add the fonts the table asks for to the fonts folder.
 3. Run `fonts` again until it reports every needed font, then run `extract`.
 
-The table has one row per font and per version the PDFs embed ([`required_fonts.py`](src/pdf_ar/required_fonts.py)):
+The table has one row per font and per version the PDFs embed ([`required_fonts.py`](https://github.com/oreaba/pdf-ar/blob/main/src/pdf_ar/required_fonts.py)):
 
 | Column | Meaning |
 |---|---|
@@ -190,7 +190,7 @@ The table has one row per font and per version the PDFs embed ([`required_fonts.
 | `glyphs`, `matched`, `unreadable` | the distinct glyphs needed, those whose outline is identical in a folder file, and those the PDF's own copy does not let us read |
 | `files`, `matched_by` | the folder files for the font, found by `name`, or by `shape` for a font whose name the PDF does not record (for example `9`) |
 | `status` | see below |
-| `hint` | where to find the font: a file of that version on this machine, the pinned open-font source in [`open_fonts.toml`](src/pdf_ar/data/open_fonts.toml), or its vendor |
+| `hint` | where to find the font: a file of that version on this machine, the pinned open-font source in [`open_fonts.toml`](https://github.com/oreaba/pdf-ar/blob/main/src/pdf_ar/data/open_fonts.toml), or its vendor |
 
 | Status | Meaning | Stops the run |
 |---|---|---|
@@ -232,7 +232,7 @@ For the whole run: `summary.csv`, `fonts_report.json` and `run.json`. All text i
 Each engine has its own check:
 
 - **Font rebuild:** a page is `ok` only if every Arabic glyph was read from a verified font file and none of the known corruption signals appear.
-- **Native:** see the table under [`auto`](#auto-native-then-fonts-then-ocr).
+- **Native:** see the table under [`auto`](https://github.com/oreaba/pdf-ar#auto-native-then-fonts-then-ocr).
 - **OCR:** a page is `ok` if Tesseract read text with a mean word confidence of at least `--min-ocr-confidence` and none of the text signals appear.
 
 Otherwise the page is `review`, with one or more of these reasons:
@@ -255,7 +255,7 @@ A flag is not proof of an error: a typo in the source can trip it. `--ocr-check`
 
 ## Docker
 
-The [`Dockerfile`](Dockerfile) builds a CPU-only image with:
+The [`Dockerfile`](https://github.com/oreaba/pdf-ar/blob/main/Dockerfile) builds a CPU-only image with:
 
 - Python 3.13;
 - PyMuPDF 2.1 and fontTools 4.68.0, the versions of the validated runs;
@@ -270,16 +270,16 @@ The layers total about 490 MB; `docker images` shows about 700 MB. PyMuPDF 2.1's
 From the repository root:
 
 ```
-docker build -t pdf-ar:0.9 .
+docker build -t pdf-ar:0.1 .
 ```
 
-[`.dockerignore`](.dockerignore) keeps fonts, outputs and `.venv` out of the build. The build downloads the Python packages and the Tesseract models once. The finished image needs no network.
+[`.dockerignore`](https://github.com/oreaba/pdf-ar/blob/main/.dockerignore) keeps fonts, outputs and `.venv` out of the build. The build downloads the Python packages and the Tesseract models once. The finished image needs no network.
 
 For an air-gapped machine, move the image as a file:
 
 ```
-docker save pdf-ar:0.9 -o pdf-ar-0.9.tar    # on the connected machine
-docker load -i pdf-ar-0.9.tar               # on the air-gapped machine
+docker save pdf-ar:0.1 -o pdf-ar-0.1.tar    # on the connected machine
+docker load -i pdf-ar-0.1.tar               # on the air-gapped machine
 ```
 
 ### Use
@@ -288,9 +288,9 @@ The container works in `/data`. Mount a folder there that holds the PDFs, and a 
 
 ```
 # PowerShell
-docker run --rm -v "${PWD}:/data" pdf-ar:0.9 extract input --out output --format txt,md,json
+docker run --rm -v "${PWD}:/data" pdf-ar:0.1 extract input --out output --format txt,md,json
 # Linux or macOS (run as your own user so the output files are yours)
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/data" pdf-ar:0.9 extract input --out output
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/data" pdf-ar:0.1 extract input --out output
 ```
 
 Other commands:
@@ -321,4 +321,4 @@ The fixture `tests/fixtures/arabic_ligatures.pdf` is a Word export of four synth
 
 ## License
 
-[AGPL-3.0](LICENSE). PyMuPDF, which pdf-ar requires, is itself AGPL-3.0 or commercial.
+[AGPL-3.0](https://github.com/oreaba/pdf-ar/blob/main/LICENSE). PyMuPDF, which pdf-ar requires, is itself AGPL-3.0 or commercial.
