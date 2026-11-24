@@ -22,8 +22,11 @@ Output layout, per document (mirroring the input folder structure)::
     <out>/summary.csv, <out>/fonts_report.csv, <out>/fonts_report.json, <out>/run.json
 
 Engines that rebuild from fonts (``fonts``, ``auto``, ``native`` with ``font_check``)
-first check every needed font against the fonts folder and stop before extracting
-anything when one is missing or a different version (``MissingFontsError``).
+first check every needed font against the fonts folder. ``fonts`` and ``native``
+stop before extracting anything when one is missing or a different version
+(``MissingFontsError``). ``auto`` goes on, reading this machine's installed files
+of those fonts whatever their version: glyphs whose outlines differ stay
+unverified, so their pages fall back to OCR.
 
 Text files are UTF-8 with ``\\n`` line endings on every platform.
 """
@@ -40,7 +43,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from pdf_ar import __version__
-from pdf_ar.fonts import FontLibrary, font_key
+from pdf_ar.fonts import FontLibrary, file_version, font_key
 from pdf_ar.formats import FORMATS, PageOutput, blocks_from_text, to_json, to_markdown
 from pdf_ar.glyphs import FontMapper
 from pdf_ar.layout import Block, rebuild
@@ -153,15 +156,31 @@ def _write(path: Path, text: str) -> None:
 
 
 def check_fonts(pdfs: Iterable[Path], options: Options, root: Path | None = None,
-                report_dir: Path | None = None) -> tuple[FontLibrary, list[Requirement]]:
-    """The fonts folder checked against every font the PDFs need; raises
-    ``MissingFontsError`` when one is missing or a different version."""
+                report_dir: Path | None = None,
+                strict: bool = True) -> tuple[FontLibrary, list[Requirement]]:
+    """The fonts folder checked against every font the PDFs need.
+
+    When one is missing or a different version, ``strict`` raises ``MissingFontsError``;
+    otherwise the library also reads this machine's installed files of that font, and
+    the rows record how many of the font's glyphs those files match.
+    """
+    pdfs = list(pdfs)
     library = FontLibrary(options.fonts_dir)
     rows = requirements(pdfs, library, root, options.pages)
+    blocking = [r for r in rows if r.blocking]
+    if not strict and blocking:
+        for row in blocking:
+            row.installed = [f"{f.path} ({file_version(f) or 'no version'})"
+                             for f in library.use_installed(row.font)]
+        if any(row.installed for row in blocking):
+            matched = {(r.font, r.version): r.verified
+                       for r in requirements(pdfs, library, root, options.pages)}
+            for row in blocking:
+                if row.installed:
+                    row.installed_matched = matched.get((row.font, row.version), 0)
     if report_dir is not None:
         write_report(rows, report_dir, options.fonts_dir)
-    blocking = [r for r in rows if r.blocking]
-    if blocking:
+    if blocking and strict:
         raise MissingFontsError(blocking, options.fonts_dir, rows)
     return library, rows
 
@@ -184,7 +203,8 @@ def run(path: Path, options: Options,
     library: FontLibrary | None = None
     rows: list[Requirement] = []
     if options.uses_fonts:
-        library, rows = check_fonts(pdfs, options, root, options.out_dir)
+        library, rows = check_fonts(pdfs, options, root, options.out_dir,
+                                    strict=options.base != "auto")
     result = RunResult(fonts=rows)
     started = time.perf_counter()
     for index, pdf in enumerate(pdfs, 1):

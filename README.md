@@ -73,7 +73,7 @@ flowchart TD
 
 - **Use it as `auto --font-check`** whenever fonts are available. The native check alone accepts Arabic text that differs from the rebuild. Without `--font-check`, `auto` is for PDFs whose fonts you cannot obtain.
 - **Steps per page:** only as many as needed. It stops at the first engine whose check passes.
-- **Missing fonts:** they never stop an `auto` run. Those pages go on to OCR.
+- **Missing fonts:** they never stop an `auto` run. For a font the fonts folder lacks, or has in a different version, `auto` reads this machine's installed files of that font, whatever their version. The rebuild only takes a glyph whose outline is identical, so a different version cannot change the text: pages with glyphs it does not match go on to OCR. The fonts table says which installed files were read and how many glyphs they match.
 - **If every engine fails:** the page keeps the rebuild's text and goes to review.
 
 A page moves on from native when the native check finds any of these:
@@ -151,7 +151,7 @@ pdf-ar report  <out folder>
 
 `python -m pdf_ar` works the same way. Where Windows application control blocks new launchers, use `python -m pdf_ar`.
 
-The `fonts` and `auto` engines, and `native --font-check`, first check every font the PDFs need against the fonts folder, as described below. If one is missing or a different version, the run stops with exit code 2 before anything is extracted. `native` and `ocr` need no fonts and skip the check.
+The `fonts` and `auto` engines, and `native --font-check`, first check every font the PDFs need against the fonts folder, as described below. If one is missing or a different version, `fonts` and `native --font-check` stop with exit code 2 before anything is extracted, while `auto` goes on with this machine's installed versions of those fonts and prints the table of what to add. `native` and `ocr` need no fonts and skip the check.
 
 `--ocr-model` chooses the Tesseract models:
 
@@ -191,8 +191,9 @@ The table has one row per font and per version the PDFs embed ([`required_fonts.
 | `files`, `matched_by` | the folder files for the font, found by `name`, or by `shape` for a font whose name the PDF does not record (for example `9`) |
 | `status` | see below |
 | `hint` | where to find the font: a file of that version on this machine, the pinned open-font source in [`open_fonts.toml`](https://github.com/oreaba/pdf-ar/blob/main/src/pdf_ar/data/open_fonts.toml), or its vendor |
+| `installed`, `installed_matched` | `auto` only: this machine's files it read in place of a missing font, and how many of the glyphs they match |
 
-| Status | Meaning | Stops the run |
+| Status | Meaning | Stops `fonts` (never `auto`) |
 |---|---|---|
 | `ok` | every readable glyph matches a folder file: the same version, or another version with identical outlines | no |
 | `partial` | the folder has the same version and at least 90% of the glyphs match: the PDFs were made with another build of it; pages with the other glyphs go to review | no |
@@ -239,7 +240,7 @@ Otherwise the page is `review`, with one or more of these reasons:
 
 | Reason | Meaning |
 |---|---|
-| `missing_font` | Arabic glyphs in a font the folder does not have (rare: a missing font stops the run first, unless the PDF's copy of it is unreadable) |
+| `missing_font` | Arabic glyphs in a font the folder does not have (in `auto`, when this machine has no version of it either; `fonts` stops first) |
 | `unverified_glyphs` | glyph outlines differ from the font file (another font version) |
 | `unresolved_glyphs` | the font tables do not name a glyph |
 | `orphan_marks` | a dot or vowel mark could not be attached to a letter |
@@ -270,7 +271,7 @@ The layers total about 490 MB; `docker images` shows about 700 MB. PyMuPDF 2.1's
 From the repository root:
 
 ```
-docker build -t pdf-ar:0.1 .
+docker build -t pdf-ar:0.2 .
 ```
 
 [`.dockerignore`](https://github.com/oreaba/pdf-ar/blob/main/.dockerignore) keeps fonts, outputs and `.venv` out of the build. The build downloads the Python packages and the Tesseract models once. The finished image needs no network.
@@ -278,8 +279,8 @@ docker build -t pdf-ar:0.1 .
 For an air-gapped machine, move the image as a file:
 
 ```
-docker save pdf-ar:0.1 -o pdf-ar-0.1.tar    # on the connected machine
-docker load -i pdf-ar-0.1.tar               # on the air-gapped machine
+docker save pdf-ar:0.2 -o pdf-ar-0.2.tar    # on the connected machine
+docker load -i pdf-ar-0.2.tar               # on the air-gapped machine
 ```
 
 ### Use
@@ -288,9 +289,9 @@ The container works in `/data`. Mount a folder there that holds the PDFs, and a 
 
 ```
 # PowerShell
-docker run --rm -v "${PWD}:/data" pdf-ar:0.1 extract input --out output --format txt,md,json
+docker run --rm -v "${PWD}:/data" pdf-ar:0.2 extract input --out output --format txt,md,json
 # Linux or macOS (run as your own user so the output files are yours)
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/data" pdf-ar:0.1 extract input --out output
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/data" pdf-ar:0.2 extract input --out output
 ```
 
 Other commands:

@@ -37,8 +37,8 @@ def test_word_fixture_rebuilds_to_its_source_sentences(tmp_path):
     assert [f["file"] for f in run_record["fonts_folder"]] == ["arial.ttf"]
 
 
-@pytest.mark.parametrize("engine", ["fonts", "auto"])
-def test_missing_fonts_stop_the_run_before_anything_is_extracted(tmp_path, engine):
+def test_missing_fonts_stop_the_run_before_anything_is_extracted(tmp_path):
+    engine = "fonts"
     options = Options(out_dir=tmp_path / "out", fonts_dir=tmp_path / "fonts", engine=engine)
     with pytest.raises(MissingFontsError) as error:
         run(FIXTURE, options)
@@ -54,6 +54,27 @@ def test_missing_fonts_stop_the_run_before_anything_is_extracted(tmp_path, engin
                  "--fonts-dir", str(tmp_path / "fonts")]) == EXIT_MISSING_FONTS
     assert main(["fonts", str(FIXTURE), "--out", str(tmp_path / "report"),
                  "--fonts-dir", str(tmp_path / "fonts")]) == EXIT_MISSING_FONTS
+
+
+@pytest.mark.skipif(not system_has("ArialMT"), reason="the fixture's font, Arial, is missing")
+def test_auto_reads_installed_fonts_the_folder_lacks(tmp_path):
+    result = run(FIXTURE, Options(out_dir=tmp_path / "out", fonts_dir=tmp_path / "fonts",
+                                  engine="auto"))
+    [row] = result.fonts
+    assert (row.font, row.status) == ("ArialMT", "missing") and row.installed
+    assert row.installed_matched == row.checkable
+    assert result.pages == 1 and result.review_pages == 0
+    report = json.loads((tmp_path / "out" / "arabic_ligatures" / "report.json")
+                        .read_text(encoding="utf-8"))
+    assert report["fonts"]["ArialMT"]
+    with (tmp_path / "out" / "fonts_report.csv").open(encoding="utf-8") as handle:
+        [listed] = list(csv.DictReader(handle))
+    assert listed["status"] == "missing" and listed["installed"]
+    run_record = json.loads((tmp_path / "out" / "run.json").read_text(encoding="utf-8"))
+    assert all("installed" in f for f in run_record["fonts_folder"])
+    assert not (tmp_path / "fonts").exists()
+    assert main(["extract", str(FIXTURE), "--engine", "auto", "--out", str(tmp_path / "cli"),
+                 "--fonts-dir", str(tmp_path / "fonts")]) == 0
 
 
 def test_native_engine_needs_no_fonts(tmp_path):

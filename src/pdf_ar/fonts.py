@@ -5,8 +5,9 @@ PDFs embed only subsets of their fonts: glyph outlines without the shaping table
 needs the full font files. This module indexes the files in the fonts folder by
 their names and versions. It never copies or downloads a font: which fonts and
 versions a set of PDFs needs is reported by ``required_fonts``, and the user adds
-them. The open-font registry and this machine's font folders are only consulted
-to say where a missing font can be found.
+them. The open-font registry and this machine's font folders are consulted to say
+where a missing font can be found; the ``auto`` engine also reads this machine's
+installed files of a font the folder lacks, whatever their version.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ def is_arabic_code(code: int) -> bool:
 
 
 def default_search_dirs() -> list[Path]:
-    """This machine's font folders: only searched to tell the user where a font is."""
+    """This machine's font folders."""
     dirs = []
     windir = os.environ.get("WINDIR")
     if windir:
@@ -135,6 +136,12 @@ def index_all_font_files(dirs: Iterable[Path]) -> dict[str, list[FontFile]]:
 
 
 @cache
+def installed_font_index() -> dict[str, list[FontFile]]:
+    """Every font file in this machine's font folders, by name."""
+    return index_all_font_files(default_search_dirs())
+
+
+@cache
 def file_version(file: FontFile) -> str | None:
     try:
         return font_version(TTFont(file.path, fontNumber=file.number, lazy=True))
@@ -186,11 +193,15 @@ def pinned_file_name(pinned: dict) -> str:
 
 
 class FontLibrary:
-    """The font files in the fonts folder, indexed by name; nothing is added to it."""
+    """The font files in the fonts folder, indexed by name; nothing is copied into it.
+
+    ``use_installed`` adds this machine's own files of named fonts, read in place.
+    """
 
     def __init__(self, folder: Path) -> None:
         self.folder = folder
         self._index: dict[str, list[FontFile]] | None = None
+        self.installed: dict[str, list[FontFile]] = {}
 
     @property
     def index(self) -> dict[str, list[FontFile]]:
@@ -199,20 +210,33 @@ class FontLibrary:
         return self._index
 
     def files(self) -> list[FontFile]:
-        """Every font in the folder, once."""
-        return sorted({f for files in self.index.values() for f in files},
-                      key=lambda f: (f.path, f.number))
+        """Every font in the folder, and the installed files in use, once."""
+        return sorted({f for files in [*self.index.values(), *self.installed.values()]
+                       for f in files}, key=lambda f: (f.path, f.number))
 
     def candidates(self, key: str) -> list[FontFile]:
-        """Every file in the folder for a PDF font name."""
-        return name_candidates(self.index, key)
+        """Every file for a PDF font name: the folder's first, then installed ones."""
+        found = name_candidates(self.index, key)
+        return found + [f for f in self.installed.get(font_key(key), []) if f not in found]
+
+    def use_installed(self, key: str) -> list[FontFile]:
+        """Also read this machine's files of a font, every version; returns them."""
+        files = [f for f in name_candidates(installed_font_index(), key)
+                 if f not in name_candidates(self.index, key)]
+        if files:
+            self.installed[font_key(key)] = files
+        return files
 
     def describe(self) -> list[dict]:
-        """The folder's files with version and SHA-256, for the run record."""
+        """The files in use with version and SHA-256, for the run record."""
+        installed = {f for files in self.installed.values() for f in files}
         out = []
         for file in self.files():
             path = Path(file.path)
-            out.append({"file": path.name, "number": file.number,
-                        "version": file_version(file), "sha256": sha256_of(path),
-                        "license": _license_of(path, file.number)})
+            entry = {"file": path.name, "number": file.number,
+                     "version": file_version(file), "sha256": sha256_of(path),
+                     "license": _license_of(path, file.number)}
+            if file in installed:
+                entry["installed"] = str(path)
+            out.append(entry)
         return out

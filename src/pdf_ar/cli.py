@@ -52,7 +52,9 @@ def _parser() -> argparse.ArgumentParser:
     _font_args(extract)
     extract.add_argument("--engine", choices=ENGINES, default="fonts",
                          help="auto: per page, native if its check passes, else fonts, else "
-                              "ocr, else review; native: the PDF's own text map, no fonts; "
+                              "ocr, else review; never stops for missing fonts, and reads "
+                              "this machine's installed versions of fonts the folder lacks; "
+                              "native: the PDF's own text map, no fonts; "
                               "fonts: Arabic rebuilt from glyph IDs and font tables (default); "
                               "ocr: Tesseract on the rendered page")
     extract.add_argument("--ocr-check", action="store_true",
@@ -118,6 +120,14 @@ def _cmd_extract(args) -> int:
     except MissingFontsError as error:
         print(table(error.all_rows), flush=True)
         return _missing(error, args.out)
+    blocking = [r for r in result.fonts if r.blocking]
+    if blocking:
+        print(table(result.fonts))
+        print(f"\n{len(blocking)} needed font(s) are not in {args.fonts_dir}. auto read this "
+              "machine's installed versions where it had them; pages with glyphs those "
+              "do not match went to OCR, or to review. Add the fonts above to "
+              f"{args.fonts_dir} for the full rebuild. Full table: "
+              f"{args.out / 'fonts_report.csv'}\n")
     print(f"{len(result.documents)} documents, {result.pages} pages, "
           f"{result.review_pages} pages for review. Output: {args.out}")
     return 0

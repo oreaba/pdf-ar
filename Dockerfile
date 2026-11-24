@@ -2,7 +2,7 @@
 # pdf-ar: deterministic Arabic and English PDF text extraction, CPU only.
 #
 # Build from the repository root:
-#   docker build -t pdf-ar:0.1 .
+#   docker build -t pdf-ar:0.2 .
 # Usage: see README.md ("Docker").
 
 FROM python:3.13-slim-bookworm

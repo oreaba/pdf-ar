@@ -17,7 +17,9 @@ One row per font and embedded version, with one of these statuses:
   not record, by glyph shapes;
 - ``unreadable``: the PDFs' copies of the font cannot be read, so no file could help.
 
-``ok``, ``partial`` and ``unreadable`` never stop a run; the other two do (``blocking``).
+``ok``, ``partial`` and ``unreadable`` never stop a run; the other two stop the
+``fonts`` engine (``blocking``). The ``auto`` engine goes on with this machine's
+installed files of a blocking font (``installed``), whatever their version.
 """
 
 from __future__ import annotations
@@ -30,10 +32,9 @@ from pathlib import Path
 
 from pdf_ar.fonts import (
     FontLibrary,
-    default_search_dirs,
     file_version,
     font_key,
-    index_all_font_files,
+    installed_font_index,
     is_arabic_code,
     name_candidates,
     open_font_registry,
@@ -46,7 +47,7 @@ from pdf_ar.pdf_adapter import PdfDocument
 BLOCKING = ("missing", "wrong_version")
 PARTIAL_MATCH = 0.9
 CSV_FIELDS = ("font", "version", "status", "documents", "pages", "glyphs", "matched",
-              "unreadable", "files", "matched_by", "hint")
+              "unreadable", "files", "matched_by", "hint", "installed", "installed_matched")
 
 
 @dataclass
@@ -63,6 +64,10 @@ class Requirement:
     by_shape: bool = False
     status: str = ""
     hint: str = ""
+    # auto: this machine's files read in place of the missing ones, "path (version)",
+    # and how many of the glyphs they match.
+    installed: list[str] = field(default_factory=list)
+    installed_matched: int | None = None
 
     @property
     def blocking(self) -> bool:
@@ -78,7 +83,9 @@ class Requirement:
                 "matched": self.verified, "unreadable": self.unreadable,
                 "files": ";".join(sorted(self.files or self.candidates)),
                 "matched_by": ("shape" if self.by_shape else "name") if self.candidates else "",
-                "hint": self.hint}
+                "hint": self.hint, "installed": ";".join(self.installed),
+                "installed_matched": "" if self.installed_matched is None
+                else self.installed_matched}
 
 
 def _needs_file(code: int) -> bool:
@@ -166,7 +173,7 @@ def _add_hints(rows: list[Requirement], library: FontLibrary) -> None:
     if not rows:
         return
     registry = open_font_registry()
-    machine = index_all_font_files(default_search_dirs())
+    machine = installed_font_index()
     for row in rows:
         version = row.version or "the version the PDFs use"
         hints = []
@@ -237,5 +244,12 @@ def table(rows: list[Requirement]) -> str:
     blocking = [r for r in ordered if r.blocking]
     if blocking:
         lines += ["", "To add to the fonts folder:"]
-        lines += [f"- {r.font} {r.version or '?'} ({r.status}): {r.hint}" for r in blocking]
+        for row in blocking:
+            lines.append(f"- {row.font} {row.version or '?'} ({row.status}): {row.hint}")
+            if row.installed:
+                line = (f"  meanwhile auto reads this machine's {', '.join(row.installed)}: "
+                        f"{row.installed_matched}/{row.checkable} glyphs match")
+                if row.installed_matched == row.checkable:
+                    line += "; copying them into the fonts folder works too"
+                lines.append(line)
     return "\n".join(lines)
