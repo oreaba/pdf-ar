@@ -271,7 +271,7 @@ The layers total about 490 MB; `docker images` shows about 700 MB. PyMuPDF 2.1's
 From the repository root:
 
 ```
-docker build -t pdf-ar:0.2 .
+docker build -t pdf-ar .
 ```
 
 [`.dockerignore`](https://github.com/oreaba/pdf-ar/blob/main/.dockerignore) keeps fonts, outputs and `.venv` out of the build. The build downloads the Python packages and the Tesseract models once. The finished image needs no network.
@@ -279,8 +279,8 @@ docker build -t pdf-ar:0.2 .
 For an air-gapped machine, move the image as a file:
 
 ```
-docker save pdf-ar:0.2 -o pdf-ar-0.2.tar    # on the connected machine
-docker load -i pdf-ar-0.2.tar               # on the air-gapped machine
+docker save pdf-ar -o pdf-ar.tar    # on the connected machine
+docker load -i pdf-ar.tar               # on the air-gapped machine
 ```
 
 ### Use
@@ -289,9 +289,9 @@ The container works in `/data`. Mount a folder there that holds the PDFs, and a 
 
 ```
 # PowerShell
-docker run --rm -v "${PWD}:/data" pdf-ar:0.2 extract input --out output --format txt,md,json
+docker run --rm -v "${PWD}:/data" pdf-ar extract input --out output --format txt,md,json
 # Linux or macOS (run as your own user so the output files are yours)
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/data" pdf-ar:0.2 extract input --out output
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/data" pdf-ar extract input --out output
 ```
 
 Other commands:
